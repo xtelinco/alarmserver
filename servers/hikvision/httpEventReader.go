@@ -20,6 +20,85 @@ type HttpEventReader struct {
 	client *http.Client
 }
 
+type cameraReader struct {
+	size uint64
+	buflen uint64
+	f *os.File
+	buf []byte
+	spacer []byte
+}
+
+func CameraReader() *cameraReader {
+	fp, err := os.Open("/out/camera2.xml")
+	if err != nil {
+		panic(err)
+	}
+	r := &cameraReader{0, 16*1024, fp, nil, nil}
+	r.buf = make([]byte, r.buflen)
+	r.spacer = make([]byte, 16)
+	copy(r.spacer, "***^^******^^***")
+	return r
+}
+
+func (r *cameraReader) Read(b []byte) (int, error) {
+	for {
+		end := -1
+		if r.size > 16 {
+			end = bytes.Index(r.buf[:r.size], r.spacer)
+		}
+		if end >= 0 {
+			remove := 16
+			if end > len(b) {
+				remove = 0
+				end = len(b)
+			}
+			if end != 0 {
+				copy(b, r.buf[0:end])
+			}
+			if r.size > uint64(end + remove) {
+				copy(r.buf[0:], r.buf[end + remove:r.size])
+			}
+			if r.size >= uint64(end + remove) {
+				r.size -= uint64(end + remove)
+			}
+			return end, nil 
+		}
+		n, err := r.f.Read(r.buf[r.size:r.buflen])
+		if err != nil {
+			return 0, nil
+		}
+		r.size += uint64(n)
+	}
+		
+}
+
+
+func Progress() *progress {
+	fp, err := os.Create("/out/camera.xml")
+	if err != nil {
+		panic(err)
+	}
+	r := &progress{0, fp, nil}
+	r.spacer = make([]byte, 16)
+	copy(r.spacer, "***^^******^^***")
+	return r
+}
+
+type progress struct {
+	total uint64
+	f *os.File
+	spacer []byte
+}
+
+func (p *progress) Write(b []byte) (int, error) {
+	_, err := p.f.Write(b)
+	if err != nil {
+		panic(err)
+	}
+	p.f.Write(p.spacer)
+	return len(b), nil
+}
+
 func BoundaryFilter(r io.Reader, boundary string) io.Reader{
 	b := make([]byte, len(boundary)+2)
 	copy(b, "--")
@@ -42,21 +121,25 @@ func(t *boundaryFilter) Read(p []byte) (n int, err error) {
 	n, err = t.r.Read(buf)
 	if n > 0 {
 		i := 0
+		//fmt.Println(string(buf[:n]))
+		//fmt.Println("------------------------------------------------")
 		for {
 			pos1 := bytes.Index(buf[i:], t.boundary)
 			if pos1 == 0 && t.hasEndBoundary {
 				copy(buf[i:], buf[i+len(t.boundary)+2:])
 				n -= len(t.boundary) + 2
-				//fmt.Println("remove boundary from start, we sent it at the end of last buffer")
+				fmt.Println("remove boundary from start, we sent it at the end of last buffer")
 				t.hasEndBoundary = false
 				continue
 			} else if pos1 >= 0 {
 				pos2 := bytes.Index(buf[i+pos1+len(t.boundary):], t.boundary)
-				//fmt.Printf("Found boundary at %d %d\n", pos1, pos2)
+				fmt.Printf("Found boundary at %d %d\n", pos1, pos2)
 				if pos2 >= 0 {
 					pos2 += i + pos1 + len(t.boundary)
-					//fmt.Printf("i:%d pos1:%d pos2: %d len:%d n-pos2-len:%d\n", i, pos1, pos2, len(t.boundary), n - pos2 - len(t.boundary))
+					fmt.Printf("i:%d pos1:%d pos2: %d len:%d n-pos2-len:%d\n", i, pos1, pos2, len(t.boundary), n - pos2 - len(t.boundary))
 					t.hasEndBoundary = n - pos2 - len(t.boundary) <= 2
+					i = pos2
+					continue
 				}
 			}
 			break
@@ -101,6 +184,9 @@ func (eventReader *HttpEventReader) ReadEvents(camera *HikCamera, channel chan<-
 	}
 	defer response.Body.Close()
 
+	//tee := io.TeeReader(response.Body, Progress())
+	tee := CameraReader()
+
 	// FIGURE OUT MULTIPART BOUNDARY
 	mediaType, params, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if mediaType != "multipart/mixed" || params["boundary"] == "" {
@@ -114,7 +200,7 @@ func (eventReader *HttpEventReader) ReadEvents(camera *HikCamera, channel chan<-
 	xmlEvent := XmlEvent{}
 
 	// READ PART BY PART
-	multipartReader := multipart.NewReader(BoundaryFilter(response.Body, multipartBoundary), multipartBoundary)
+	multipartReader := multipart.NewReader(BoundaryFilter(tee, multipartBoundary), multipartBoundary)
 	for {
 		part, err := multipartReader.NextPart()
 		if err == io.EOF {
