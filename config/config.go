@@ -190,6 +190,12 @@ func (c *Config) Load() *Config {
 				if camConfig.GetBool("rawTcp") {
 					camera.BrokenHttp = true
 				}
+				if camConfig.GetBool("publishImages") {
+					camera.PublishImages = true
+				}
+				if camConfig.GetBool("sendXML") {
+					camera.SendXML = true
+				}
 				if myConfig.Debug {
 					fmt.Printf("Added Hikvision camera:\n"+
 						"  name: %s \n"+

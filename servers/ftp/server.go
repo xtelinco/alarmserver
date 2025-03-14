@@ -13,7 +13,7 @@ type Server struct {
 	AllowFiles     bool
 	RootPath       string
 	Password       string
-	MessageHandler func(cameraName string, eventType string, extra string)
+	MessageHandler func(cameraName string, eventType string, extra interface{})
 }
 
 type Event struct {
@@ -25,7 +25,7 @@ type Event struct {
 func (serv *Server) Start() {
 	if serv.MessageHandler == nil {
 		fmt.Println("FTP: Message handler is not set for FTP server - that's probably not what you want")
-		serv.MessageHandler = func(cameraName string, eventType string, extra string) {
+		serv.MessageHandler = func(cameraName string, eventType string, extra interface{}) {
 			fmt.Printf("FTP: Lost alarm: %s - %s: %s\n", cameraName, eventType, extra)
 		}
 	}

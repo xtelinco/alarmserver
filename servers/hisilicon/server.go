@@ -41,7 +41,7 @@ type Server struct {
 	Debug          bool
 	WaitGroup      *sync.WaitGroup
 	Port           string
-	MessageHandler func(cameraName string, eventType string, extra string)
+	MessageHandler func(cameraName string, eventType string, extra interface{})
 }
 
 func (server *Server) handleTcpConnection(conn net.Conn) {
@@ -102,7 +102,7 @@ func (server *Server) Start() {
 	}
 	if server.MessageHandler == nil {
 		fmt.Println("HISI: Message handler is not set for HiSilicon cams - that's probably not what you want")
-		server.MessageHandler = func(cameraName string, eventType string, extra string) {
+		server.MessageHandler = func(cameraName string, eventType string, extra interface{}) {
 			fmt.Printf("HISI: Lost alarm: %s - %s: %s\n", cameraName, eventType, extra)
 		}
 	}

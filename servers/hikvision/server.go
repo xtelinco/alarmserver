@@ -18,18 +18,20 @@ const (
 )
 
 type HikCamera struct {
-	Name        string `json:"name"`
-	Url         string `json:"url"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	EventReader HikEventReader
-	BrokenHttp  bool
-	AuthMethod  HttpAuthMethod
+	Name        	string `json:"name"`
+	Url         	string `json:"url"`
+	Username    	string `json:"username"`
+	Password    	string `json:"password"`
+	EventReader 	HikEventReader
+	BrokenHttp  	bool
+	AuthMethod  	HttpAuthMethod
+	PublishImages 	bool
+	SendXML 	bool
 }
 
 type HikEvent struct {
 	Type    string
-	Message string
+	Message interface{}
 	Camera  *HikCamera
 }
 
@@ -37,7 +39,7 @@ type Server struct {
 	Debug          bool
 	WaitGroup      *sync.WaitGroup
 	Cameras        *[]HikCamera
-	MessageHandler func(cameraName string, eventType string, extra string)
+	MessageHandler func(cameraName string, eventType string, extra interface{})
 }
 
 type XmlEvent struct {
@@ -153,7 +155,7 @@ func (server *Server) Start() {
 
 	if server.MessageHandler == nil {
 		fmt.Println("HIK: Message handler is not set for Hikvision cams - that's probably not what you want")
-		server.MessageHandler = func(cameraName string, eventType string, extra string) {
+		server.MessageHandler = func(cameraName string, eventType string, extra interface{}) {
 			fmt.Printf("HIK: Lost alarm: %s - %s: %s\n", cameraName, eventType, extra)
 		}
 	}

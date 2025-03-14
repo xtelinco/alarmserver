@@ -9,6 +9,7 @@ hikvision:
       username: admin
       password: admin1234
       rawTcp: false
+      publishImages: true
     myDoorbell:
       address: 192.168.1.13
       https: false
@@ -16,6 +17,9 @@ hikvision:
       password: admin666
       # USE RAW TCP IF HTTP STREAMING DOES NOT WORK
       rawTcp: true
+      publishImages: false
+      # SEND XML from device in message rather than just eventDescription
+      sendXML: true
 
 hisilicon:
   enabled: true
