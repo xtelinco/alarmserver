@@ -20,27 +20,6 @@ type HttpEventReader struct {
 	client *http.Client
 }
 
-func Progress() *progress {
-	fp, err := os.Create("/out/camera.xml")
-	if err != nil {
-		panic(err)
-	}
-	return &progress{0, fp}
-}
-
-type progress struct {
-	total uint64
-	f *os.File
-}
-
-func (p *progress) Write(b []byte) (int, error) {
-	_, err := p.f.Write(b)
-	if err != nil {
-		panic(err)
-	}
-	return len(b), nil
-}
-
 func BoundaryFilter(r io.Reader, boundary string) io.Reader{
 	b := make([]byte, len(boundary)+2)
 	copy(b, "--")
@@ -121,8 +100,6 @@ func (eventReader *HttpEventReader) ReadEvents(camera *HikCamera, channel chan<-
 		fmt.Printf("HIK: BAD STATUS %d", response.StatusCode)
 	}
 	defer response.Body.Close()
-
-	//tee := io.TeeReader(response.Body, Progress())
 
 	// FIGURE OUT MULTIPART BOUNDARY
 	mediaType, params, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
